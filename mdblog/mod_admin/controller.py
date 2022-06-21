@@ -14,31 +14,35 @@ from .forms import ArticleForm
 from .forms import ChangePasswordForm
 from .forms import LoginForm
 
+from .utils import login_required
+
 admin = Blueprint("admin", __name__)
     
-@admin.route("/admin/")
+@admin.route("/")
+@login_required
 def view_admin():
-    if "logged" not in session:
-        flash("You must be logged in", "alert-danger")
-        return redirect(url_for("admin.view_login"))
-    return render_template("mod_admin/admin.jinja")
+    page=request.args.get("page", 1, type=int)
+    paginate = Article.query.order_by(Article.id.desc()).paginate(
+            page, 10, False)
+    return render_template("mod_admin/admin.jinja",
+                    articles=paginate.items,
+                    paginate=paginate)
 
 @admin.route("/articles/new/", methods=["GET"])    
+@login_required
 def view_add_article():
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))
     form = ArticleForm()
     return render_template("mod_admin/article_editor.jinja", form=form)
     
 @admin.route("/articles/", methods=["POST"])
+@login_required
 def add_article():
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))
     add_form = ArticleForm(request.form)
     if add_form.validate():
         new_article = Article(
                 title = add_form.title.data,
-                content = add_form.content.data)
+                content = add_form.content.data,
+                html_render = add_form.html_render.data)
         db.session.add(new_article)
         db.session.commit()
         flash("Article was saved", "alert-success")
@@ -50,9 +54,8 @@ def add_article():
     
    
 @admin.route("/articles/<int:art_id>/edit/", methods=["GET"])
+@login_required
 def view_article_editor(art_id):
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))
     article = Article.query.filter_by(id=art_id).first()
     if article:
         form = ArticleForm()
@@ -62,15 +65,15 @@ def view_article_editor(art_id):
     return render_template("mod_blog/article_not_found.jinja", art_id=art_id)
     
 @admin.route("/articles/<int:art_id>/", methods=["POST"])
-def edit_article(art_id):
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))  
+@login_required
+def edit_article(art_id): 
     article = Article.query.filter_by(id=art_id).first()
     if article:
         edit_form = ArticleForm(request.form)
         if edit_form.validate():
             article.title = edit_form.title.data
             article.content = edit_form.content.data
+            article.html_render = edit_form.html_render.data
             db.session.add(article)
             db.session.commit()
             flash("Edit saved", "alert-success")
@@ -103,16 +106,14 @@ def login_user():
         return redirect(url_for("admin.view_login"))
         
 @admin.route("/changepassword/", methods=["GET"])
+@login_required
 def view_change_password():
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))
     form = ChangePasswordForm()
     return render_template("mod_admin/change_password.jinja", form=form)
     
 @admin.route("/changepassword/", methods=["POST"])
+@login_required
 def change_password():
-    if "logged" not in session:
-        return redirect(url_for("admin.view_login"))
     form = ChangePasswordForm(request.form)
     if form.validate():
         user = User.query.filter_by(username = session["logged"]).first()
@@ -131,6 +132,7 @@ def change_password():
         return redirect(url_for("main.view_welcome_page"))
         
 @admin.route("/logout/", methods=["POST"])
+@login_required
 def logout_user():
     session.pop("logged")
     flash("Logout successfull", "alert-success")
