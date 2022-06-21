@@ -60,3 +60,13 @@ header {
 footer {
 	text-align: center;
 }
+
+.paginate {
+	text-align: center;
+}
+
+.paginate li {
+	padding-top: 10px;
+	text-align: center;
+	display: inline-block;
+}
